@@ -1186,6 +1186,35 @@ index bacc1dd..f2a3fba 100644
  
    "api/OFS_WebsocketApi.cpp"
    "api/OFS_WebsocketApiClient.cpp"
+diff --git a/src/OFS_Project.cpp b/src/OFS_Project.cpp
+index 9b4e07a..af44b81 100644
+--- a/src/OFS_Project.cpp
++++ b/src/OFS_Project.cpp
+@@ -420,10 +420,8 @@ void OFS_Project::loadMultiAxis(const std::string& rootScript) noexcept
+ std::string OFS_Project::MakePathAbsolute(const std::string& relPathStr) const noexcept
+ {
+     auto relPath = Util::PathFromString(relPathStr);
+-    FUN_ASSERT(relPath.is_relative(), "Path isn't relative");
+     if (relPath.is_absolute()) {
+-        LOGF_ERROR("Path was already absolute. \"%s\"", relPathStr.c_str());
+-        return relPathStr;
++        return relPathStr;   // files on another drive are stored absolute (see MakePathRelative)
+     }
+     else {
+         auto projectDir = Util::PathFromString(lastPath);
+@@ -446,6 +444,12 @@ std::string OFS_Project::MakePathRelative(const std::string& absPathStr) const n
+     auto absPath = Util::PathFromString(absPathStr);
+     auto projectDir = Util::PathFromString(lastPath).parent_path();
+     auto relPath = absPath.lexically_relative(projectDir);
++    if (relPath.empty() && !absPath.empty()) {
++        // no relative path exists (e.g. the file is on another drive than the project): keep it absolute,
++        // MakePathAbsolute returns absolute paths unchanged
++        LOGF_INFO("Keeping absolute path \"%s\" (not under the project's drive)", absPathStr.c_str());
++        return absPathStr;
++    }
+     auto relPathStr = relPath.u8string();
+     LOGF_INFO("Convert absolute path \"%s\" to relative \"%s\"", absPathStr.c_str(), relPathStr.c_str());
+     return relPathStr;
 diff --git a/src/OFS_UndoSystem.cpp b/src/OFS_UndoSystem.cpp
 index 7962646..e9265ea 100644
 --- a/src/OFS_UndoSystem.cpp

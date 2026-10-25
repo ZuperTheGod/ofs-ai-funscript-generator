@@ -29,7 +29,22 @@ static std::wstring widen(const std::string& s) noexcept
 #endif
 }
 
-static std::string quote(const std::string& s) noexcept { return "\"" + s + "\""; }
+// Windows argument quoting: backslashes right before the closing quote must be doubled, or a path ending in "\"
+// swallows the quote and glues the next arguments onto it.
+static std::string quote(const std::string& s) noexcept
+{
+	size_t trailing = 0;
+	while (trailing < s.size() && s[s.size() - 1 - trailing] == '\\') trailing += 1;
+	return "\"" + s + std::string(trailing, '\\') + "\"";
+}
+
+// a saved script file (not a folder, which is what an unsaved track's path resolves to)
+static bool isSavedScript(const std::string& path) noexcept
+{
+	std::error_code ec;
+	auto p = Util::PathFromString(path);
+	return !path.empty() && std::filesystem::is_regular_file(p, ec) && !ec;
+}
 
 std::string OFS_JoiMaker::python() const noexcept
 {
@@ -282,9 +297,11 @@ void OFS_JoiMaker::Show(const std::string& videoPath, const std::string& activeS
 	ImGui::BeginDisabled(activeScriptPath.empty() || !haveVideo || running);
 	if (ImGui::Button("Check direction of the selected script (save it first)", ImVec2(-1.f, 0.f))) {
 		auto flagsOut = outBase(videoPath) + ".direction.json";
-		if (!Util::FileExists(activeScriptPath)) {
+		if (!isSavedScript(activeScriptPath)) {
 			std::lock_guard<std::mutex> lk(logMutex);
-			log = "The selected script is not saved yet. Save it first (File > Save), then press Check direction again.\n";
+			log = "The selected track has no saved .funscript file yet.\n"
+				"Write it to a file first (File > Export... > Export active script), then select that track and\n"
+				"press Check direction again.\n";
 		}
 		else {
 			run(std::string(isPublic() ? "-m funscript_ai.direction_check " : "-m joi_maker.direction_check ") + quote(activeScriptPath) + " " + quote(videoPath) + " --out " + quote(flagsOut),
@@ -316,7 +333,12 @@ void OFS_JoiMaker::Show(const std::string& videoPath, const std::string& activeS
 	if (canTrain()) {   // only with the full training setup, not the public generator
 		ImGui::BeginDisabled(activeScriptPath.empty() || running);
 		if (ImGui::Button("Send the selected script to training (after fixing + saving it)", ImVec2(-1.f, 0.f))) {
-			run("tests/add_correction.py " + quote(activeScriptPath), std::string(), std::string());
+			if (!isSavedScript(activeScriptPath)) {
+				std::lock_guard<std::mutex> lk(logMutex);
+				log = "The selected track has no saved .funscript file yet.\n"
+					"Write it to a file first (File > Export... > Export active script), then send it to training.\n";
+			}
+			else run("tests/add_correction.py " + quote(activeScriptPath), std::string(), std::string());
 		}
 		ImGui::EndDisabled();
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("Files the selected track as a correction: %s", activeScriptPath.c_str());
