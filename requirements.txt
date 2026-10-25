@@ -1,0 +1,9 @@
+# installed by "1 - Setup (run once).bat"
+numpy>=2.0
+scipy>=1.15
+librosa>=0.10
+soundfile>=0.13
+opencv-python-headless>=4.12
+huggingface-hub>=1.0
+psutil>=7.0
+beat_this @ https://github.com/CPJKU/beat_this/archive/main.zip

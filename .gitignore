@@ -1,0 +1,11 @@
+.venv/
+.python/
+.uv-cache/
+__pycache__/
+*.pyc
+work/
+bin/
+torch_home/
+models/thrust/*.pt
+dist/
+*.funscript
